@@ -42,37 +42,42 @@ function Currency() {
   return (
     <Popover>
       <PopoverTrigger>
-        <span
-          className={cn(
-            "flex items-center gap-2 rounded-full bg-black/20 px-2 py-1 text-sm font-light",
-            priceChange && priceChange > 0 ? "bg-green-200/20" : "bg-red-500/20"
-          )}>
-          {isLoading ? (
-            <span className="animate-pulse">Loading...</span>
-          ) : (
-            <div className="flex items-center gap-2">
-              {priceChange && priceChange > 0 ? (
-                <ArrowUp className="h-4 w-4 text-green-500" />
-              ) : (
-                <ArrowDown className="h-4 w-4 text-red-500" />
-              )}
-              <span>
-                {Array.isArray(data) && data[data.length - 1]?.value.toFixed(4)}
-              </span>
-              {priceChange && (
-                <span
-                  className={cn(
-                    "text-xs",
-                    priceChange && priceChange > 0
-                      ? "text-green-500"
-                      : "text-red-500"
-                  )}>
-                  {priceChange.toFixed(2)}%
+        <div className="overflow-hidden rounded-full bg-black/20 transition-all duration-300 hover:scale-105 hover:bg-black/50">
+          <span
+            className={cn(
+              "flex items-center gap-2 px-2 py-1 text-sm font-light",
+              priceChange && priceChange > 0
+                ? "bg-green-200/20"
+                : "bg-red-500/20"
+            )}>
+            {isLoading ? (
+              <span className="animate-pulse">Loading...</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                {priceChange && priceChange > 0 ? (
+                  <ArrowUp className="h-4 w-4 text-green-500" />
+                ) : (
+                  <ArrowDown className="h-4 w-4 text-red-500" />
+                )}
+                <span>
+                  {Array.isArray(data) &&
+                    data[data.length - 1]?.value.toFixed(4)}
                 </span>
-              )}
-            </div>
-          )}
-        </span>
+                {priceChange && (
+                  <span
+                    className={cn(
+                      "text-xs",
+                      priceChange && priceChange > 0
+                        ? "text-green-500"
+                        : "text-red-500"
+                    )}>
+                    {priceChange.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            )}
+          </span>
+        </div>
       </PopoverTrigger>
       <PopoverContent className="p-0">
         {data && <PriceChart data={data} />}

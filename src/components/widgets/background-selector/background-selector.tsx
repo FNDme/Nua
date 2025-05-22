@@ -23,10 +23,6 @@ function BackgroundSelector() {
       color: background?.color
     })
 
-  useEffect(() => {
-    console.log(background)
-  }, [background])
-
   const [currentImage, setCurrentImage] = useState(selectedImage)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,10 +76,8 @@ function BackgroundSelector() {
             <StepForward opacity={0.6} />
           </IconButton>
           <Popover>
-            <PopoverTrigger>
-              <IconButton>
-                <Info opacity={0.6} />
-              </IconButton>
+            <PopoverTrigger className="inline-flex h-9 w-9 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-black/20 text-sm font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/30 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0">
+              <Info opacity={0.6} />
             </PopoverTrigger>
             {/* Image info and author */}
             <PopoverContent

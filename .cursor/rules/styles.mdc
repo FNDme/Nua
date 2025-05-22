@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+This project is using tailwindcss and shadcn for styling. Please, use them when possible, and if you need a new component from shadcn, install it using `npx shadcn@latest add <component>`

@@ -1,0 +1,8 @@
+html,
+body,
+#__plasmo {
+  height: fit-content;
+  width: fit-content;
+  overflow: visible;
+  background-color: #262626;
+}

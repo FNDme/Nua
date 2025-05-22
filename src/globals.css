@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: hsl(0, 0%, 10%);
+    --foreground: hsl(0 0% 98.04%);
+    --card: hsl(0 0% 9.8%);
+    --card-foreground: hsl(0 0% 98.04%);
+    --popover: hsl(0 0% 14.9%);
+    --popover-foreground: hsl(0 0% 98.04%);
+    --primary: hsl(0 0% 45.1%);
+    --primary-foreground: hsl(0 0% 98.04%);
+    --secondary: hsl(0 0% 14.9%);
+    --secondary-foreground: hsl(0 0% 98.04%);
+    --muted: hsl(0 0% 14.9%);
+    --muted-foreground: hsl(0 0% 63.14%);
+    --accent: hsl(0 0% 25.1%);
+    --accent-foreground: hsl(0 0% 98.04%);
+    --destructive: hsl(358.84 100% 69.61%);
+    --destructive-foreground: hsl(0 0% 14.9%);
+    --border: hsl(0 0% 21.96%);
+    --input: hsl(0 0% 32.16%);
+    --ring: hsl(0 0% 45.1%);
+    --chart-1: hsl(0 0% 45.1%);
+    --chart-2: hsl(0 0% 45.1%);
+    --chart-3: hsl(0 0% 45.1%);
+    --chart-4: hsl(0 0% 45.1%);
+    --chart-5: hsl(0 0% 45.1%);
+    --sidebar: hsl(0 0% 9.02%);
+    --sidebar-foreground: hsl(0 0% 98.04%);
+    --sidebar-primary: hsl(0 0% 98.04%);
+    --sidebar-primary-foreground: hsl(0 0% 9.02%);
+    --sidebar-accent: hsl(0 0% 14.9%);
+    --sidebar-accent-foreground: hsl(0 0% 98.04%);
+    --sidebar-border: hsl(0 0% 100%);
+    --sidebar-ring: hsl(0 0% 32.16%);
+    --font-sans: Geist Mono, monospace;
+    --font-serif: Geist Mono, monospace;
+    --font-mono: Geist Mono, monospace;
+    --radius: 0.625rem;
+    --shadow-2xs: 0px 1px 0px 0px hsl(0 0% 0% / 0);
+    --shadow-xs: 0px 1px 0px 0px hsl(0 0% 0% / 0);
+    --shadow-sm: 0px 1px 0px 0px hsl(0 0% 0% / 0),
+      0px 1px 2px -1px hsl(0 0% 0% / 0);
+    --shadow: 0px 1px 0px 0px hsl(0 0% 0% / 0),
+      0px 1px 2px -1px hsl(0 0% 0% / 0);
+    --shadow-md: 0px 1px 0px 0px hsl(0 0% 0% / 0),
+      0px 2px 4px -1px hsl(0 0% 0% / 0);
+    --shadow-lg: 0px 1px 0px 0px hsl(0 0% 0% / 0),
+      0px 4px 6px -1px hsl(0 0% 0% / 0);
+    --shadow-xl: 0px 1px 0px 0px hsl(0 0% 0% / 0),
+      0px 8px 10px -1px hsl(0 0% 0% / 0);
+    --shadow-2xl: 0px 1px 0px 0px hsl(0 0% 0% / 0);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply h-full w-full bg-background font-sans text-foreground antialiased;
+  }
+}
+
+#plasmo-shadow-container {
+  all: initial;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#__plasmo {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #333333;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4e4e4e;
+  border-radius: 6px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  body {
+    scrollbar-color: #4e4e4e #333333;
+  }
+}

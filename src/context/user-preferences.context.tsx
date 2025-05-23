@@ -45,6 +45,11 @@ interface UserPreferencesContextType {
 }
 
 const defaultPreferences: UserPreferences = {
+  background: {
+    query: "mountains",
+    pageIndex: 1,
+    photoIndex: 0
+  },
   quickLinks: {
     links: [],
     isEditing: false,

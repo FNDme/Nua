@@ -20,8 +20,8 @@ function Currency() {
   const { data, isLoading } = useQuery({
     queryKey: ["currency", ticker, "new"],
     queryFn: () => getTimeseriesForTicker(ticker),
-    staleTime: 0,
-    refetchInterval: false,
+    staleTime: 1000 * 60 * 15,
+    refetchInterval: 1000 * 60 * 15,
     select: (data) =>
       data.values.map((value) => {
         return {

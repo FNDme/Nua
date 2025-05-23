@@ -47,7 +47,8 @@ export const PriceChart = ({ data, height = 150 }: PriceChartProps) => {
       timeScale: {
         borderColor: colors.textColor,
         fixRightEdge: true,
-        fixLeftEdge: true
+        fixLeftEdge: true,
+        timeVisible: true
       },
       rightPriceScale: {
         borderColor: colors.textColor
@@ -68,7 +69,12 @@ export const PriceChart = ({ data, height = 150 }: PriceChartProps) => {
     const newSeries = chart.addSeries(AreaSeries, {
       lineColor: colors.lineColor,
       topColor: colors.areaTopColor,
-      bottomColor: colors.areaBottomColor
+      bottomColor: colors.areaBottomColor,
+      priceFormat: {
+        type: "price",
+        precision: 4,
+        minMove: 0.0001
+      }
     })
     newSeries.setData(data)
 

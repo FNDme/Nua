@@ -14,7 +14,7 @@ export default function Home() {
         <div className="absolute left-0 top-0">
           <BackgroundSelector />
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 sm:gap-0">
           <WorkTimer />
           <Currency />
         </div>

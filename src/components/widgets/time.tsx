@@ -19,10 +19,7 @@ function Time() {
   const ampm = hours >= 12 ? "PM" : "AM"
 
   return (
-    <div className="relative h-fit w-fit overflow-hidden rounded-2xl p-6">
-      {/* Glass effect overlay */}
-      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
-
+    <div className="h-fit w-fit rounded-2xl bg-black/10 p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-xl">
       {/* Content */}
       <div className="relative z-10">
         {/* Time display */}
@@ -51,10 +48,6 @@ function Time() {
           })}
         </div>
       </div>
-
-      {/* Decorative elements */}
-      <div className="absolute left-0 top-0 h-32 w-32 -translate-x-16 -translate-y-16 rounded-full bg-black/10 blur-2xl" />
-      <div className="absolute bottom-0 right-0 h-32 w-32 translate-x-16 translate-y-16 rounded-full bg-black/10 blur-2xl" />
     </div>
   )
 }

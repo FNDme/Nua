@@ -18,29 +18,20 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
   } = useUserPreferences()
 
   const { data, isFetching } = useQuery({
-    queryKey: [
-      "images",
-      term,
-      color,
-      background?.pageIndex,
-      background?.photoIndex
-    ],
-    enabled: !!term,
+    queryKey: ["images", term, color, background?.pageIndex],
+    enabled: !!term && !!background?.pageIndex,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const result = await api.search.getPhotos({
         query: term,
-        page: background?.pageIndex ?? 1,
+        page: background?.pageIndex,
         perPage: PAGE_SIZE,
         orientation: "landscape",
         color: color
       })
 
       // Prefetch next page if we're near the end
-      if (
-        background?.photoIndex >= PAGE_SIZE - 2 &&
-        result.response.total_pages > background?.pageIndex
-      ) {
+      if (result.response.total_pages > background?.pageIndex) {
         queryClient.prefetchQuery({
           queryKey: ["images", term, color, background?.pageIndex + 1],
           queryFn: async () => {
@@ -56,7 +47,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
       }
 
       // Prefetch previous page if we're near the start
-      if (background?.photoIndex <= 1 && background?.pageIndex > 1) {
+      if (background?.pageIndex > 1) {
         queryClient.prefetchQuery({
           queryKey: ["images", term, color, background?.pageIndex - 1],
           queryFn: async () => {
@@ -110,6 +101,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
   }
 
   const selectedImage = useMemo<Basic | undefined>(() => {
+    if (!data || background?.photoIndex === undefined) return undefined
     return data?.response.results[background?.photoIndex]
   }, [data, background?.photoIndex])
 

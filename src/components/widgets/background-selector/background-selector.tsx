@@ -7,6 +7,7 @@ import {
 import useFetchImages from "@/hooks/fetch-images"
 import { Info, Loader2, StepBack, StepForward } from "lucide-react"
 import { useEffect, useState } from "react"
+import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
 
@@ -23,12 +24,13 @@ function BackgroundSelector() {
       color: background?.color
     })
 
-  const [currentImage, setCurrentImage] = useState(selectedImage)
+  const [currentImage, setCurrentImage] = useState<Basic | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (selectedImage !== currentImage) {
+      console.log("selectedImage", selectedImage, background?.photoIndex)
       setIsTransitioning(true)
       setError(null)
 

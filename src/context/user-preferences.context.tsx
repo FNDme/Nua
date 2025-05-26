@@ -7,7 +7,7 @@ import { useStorage } from "@plasmohq/storage/hook"
 import { PREFERENCES_KEY } from "~/constants"
 
 interface UserPreferences {
-  background?: {
+  background: {
     query: string
     color?: ColorId
     pageIndex: number
@@ -71,7 +71,7 @@ export const UserPreferencesProvider: FC<UserPreferencesProviderProps> = ({
 }) => {
   const [preferences, setPreferences] = useStorage<UserPreferences>(
     PREFERENCES_KEY,
-    (v) => v ?? defaultPreferences
+    (v) => (v === undefined ? defaultPreferences : v)
   )
 
   const updatePreferences = (newPreferences: Partial<UserPreferences>) => {

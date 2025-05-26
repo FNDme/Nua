@@ -15,7 +15,7 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
   return (
     <div className="max-h-[90vh] space-y-4 overflow-y-auto p-3">
       <div className="space-y-2">
-        {currentImage?.urls?.thumb && (
+        {currentImage?.urls?.small && (
           <img
             src={currentImage.urls.small}
             alt={currentImage?.alt_description || "Image thumbnail"}

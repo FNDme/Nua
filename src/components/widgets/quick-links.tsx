@@ -4,6 +4,7 @@ import {
   Figma,
   Github,
   Link,
+  Newspaper,
   PencilOff,
   Trash,
   Trello,
@@ -13,6 +14,7 @@ import {
 import React, { useEffect, useState } from "react"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
+import { cn } from "~/lib/utils"
 
 import IconButton from "../shared/icon-button"
 import {
@@ -46,6 +48,10 @@ const availableIcons: { name: string; icon: LucideIcon }[] = [
   {
     name: "Trello",
     icon: Trello
+  },
+  {
+    name: "News",
+    icon: Newspaper
   }
 ]
 type AvailableIcons = (typeof availableIcons)[number]["name"]
@@ -82,9 +88,16 @@ function QuickLinks() {
     <div className="flex h-full flex-col gap-2">
       {quickLinks.links.map((link) => (
         <div
-          className="relative"
+          className="group relative flex h-fit items-center justify-center"
           title={link.name}
           key={`${link.name}-${link.url}`}>
+          <span
+            className={cn(
+              "absolute right-0 top-1/2 -translate-y-1/2 translate-x-0 content-center rounded-full bg-black/30 py-1 pl-2 pr-4 text-gray-200 opacity-0 transition-all duration-300 group-hover:-translate-x-10 group-hover:opacity-100",
+              quickLinks.isEditing && "hidden"
+            )}>
+            {link.name}
+          </span>
           <IconButton
             title={link.name}
             disabled={quickLinks.isEditing}

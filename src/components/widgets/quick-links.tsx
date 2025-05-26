@@ -9,10 +9,9 @@ import {
   PencilOff,
   Trash,
   Trello,
-  Twitter,
   type LucideIcon
 } from "lucide-react"
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
 import { cn } from "~/lib/utils"
@@ -98,7 +97,7 @@ function QuickLinks() {
           key={`${link.name}-${link.url}`}>
           <span
             className={cn(
-              "absolute right-0 top-1/2 -translate-y-1/2 translate-x-0 content-center rounded-full bg-black/30 py-1 pl-2 pr-4 text-gray-200 opacity-0 transition-all duration-300 group-hover:-translate-x-10 group-hover:opacity-100",
+              "absolute right-0 top-1/2 -translate-y-1/2 translate-x-0 content-center whitespace-nowrap rounded-full bg-black/30 py-1 pl-2 pr-4 text-gray-200 opacity-0 transition-all duration-300 group-hover:-translate-x-10 group-hover:opacity-100",
               quickLinks.isEditing && "hidden"
             )}>
             {link.name}

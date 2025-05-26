@@ -4,6 +4,7 @@ import {
   Figma,
   Github,
   Link,
+  Mail,
   Newspaper,
   PencilOff,
   Trash,
@@ -52,6 +53,10 @@ const availableIcons: { name: string; icon: LucideIcon }[] = [
   {
     name: "News",
     icon: Newspaper
+  },
+  {
+    name: "Email",
+    icon: Mail
   }
 ]
 type AvailableIcons = (typeof availableIcons)[number]["name"]

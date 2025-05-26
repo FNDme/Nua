@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from "react"
+import { createContext, useContext } from "react"
 import type { FC, ReactNode } from "react"
 import type { ColorId } from "unsplash-js"
 
@@ -47,8 +47,8 @@ interface UserPreferencesContextType {
 const defaultPreferences: UserPreferences = {
   background: {
     query: "mountains",
-    pageIndex: 1,
-    photoIndex: 0
+    pageIndex: undefined,
+    photoIndex: undefined
   },
   quickLinks: {
     links: [],

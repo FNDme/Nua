@@ -68,7 +68,7 @@ function QuickLinks() {
 
   const [name, setName] = useState("")
   const [url, setUrl] = useState("")
-  const [icon, setIcon] = useState<AvailableIcons>("Link")
+  const [selectedIcon, setSelectedIcon] = useState<AvailableIcons>("Link")
 
   const handleDeleteLink = (name: string) => {
     const newLinks = quickLinks.links.filter((link) => link.name !== name)
@@ -80,13 +80,15 @@ function QuickLinks() {
 
   const handleAddLink = () => {
     updateQuickLinks({
-      links: [...quickLinks.links, { name, url, icon }],
+      links: [...quickLinks.links, { name, url, icon: selectedIcon }],
       isCreating: false
     })
     setName("")
     setUrl("")
-    setIcon("Link")
+    setSelectedIcon("Link")
   }
+
+  if (!quickLinks) return null
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -148,25 +150,25 @@ function QuickLinks() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
-            <Select
-              value={icon}
-              onValueChange={(value) => setIcon(value as AvailableIcons)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select icon" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableIcons.map((icon) => (
-                  <SelectItem key={icon.name} value={icon.name}>
-                    {icon.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <DialogFooter>
-            <Button className="self-end" onClick={handleAddLink}>
-              Add
-            </Button>
+            <div className="flex w-full flex-row justify-between gap-2">
+              <div className="flex flex-wrap gap-2">
+                {availableIcons.map((icon) => (
+                  <IconButton
+                    key={icon.name}
+                    title={icon.name}
+                    className={cn(
+                      "rounded-full bg-black/20 text-gray-600 shadow-lg backdrop-blur-sm hover:bg-black/30 hover:text-gray-200",
+                      selectedIcon === icon.name && "bg-black/30 text-gray-200"
+                    )}
+                    onClick={() => setSelectedIcon(icon.name)}>
+                    {React.createElement(icon.icon)}
+                  </IconButton>
+                ))}
+              </div>
+              <Button onClick={handleAddLink}>Add</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

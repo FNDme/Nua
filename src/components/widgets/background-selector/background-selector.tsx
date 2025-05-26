@@ -29,8 +29,8 @@ function BackgroundSelector() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!selectedImage) return
     if (selectedImage !== currentImage) {
-      console.log("selectedImage", selectedImage, background?.photoIndex)
       setIsTransitioning(true)
       setError(null)
 

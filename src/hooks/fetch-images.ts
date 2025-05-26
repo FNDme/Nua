@@ -19,7 +19,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
 
   const { data, isFetching } = useQuery({
     queryKey: ["images", term, color, background?.pageIndex],
-    enabled: !!term && !!background?.pageIndex,
+    enabled: !!term && !!background?.pageIndex && background?.pageIndex > 0,
     refetchOnWindowFocus: false,
     queryFn: async () => {
       const result = await api.search.getPhotos({

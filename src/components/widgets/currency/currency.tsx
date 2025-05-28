@@ -18,14 +18,16 @@ function Currency() {
     preferences: { ticker }
   } = useUserPreferences()
   const { data, isLoading } = useQuery({
-    queryKey: ["currency", ticker, "new"],
+    queryKey: ["currency", ticker],
     queryFn: () => getTimeseriesForTicker(ticker),
     staleTime: 1000 * 60 * 15,
     refetchInterval: 1000 * 60 * 15,
     select: (data) =>
       data.values.map((value) => {
         return {
-          time: (Date.parse(value.datetime) / 1000) as Time,
+          time: ((Date.parse(value.datetime) -
+            new Date().getTimezoneOffset() * 60000) /
+            1000) as Time,
           value: Number(value.close)
         }
       })

@@ -27,7 +27,7 @@ const promiseCache: Record<string, Promise<any>> = {}
 
 export const getTimeseriesForTicker = async (
   ticker: string,
-  useCache = false
+  useCache = true
 ): Promise<StockInfo> => {
   const now = Date.now()
 
@@ -56,7 +56,8 @@ export const getTimeseriesForTicker = async (
               .split("T")[0],
             interval: "15min",
             apikey: apiKey,
-            order: "ASC"
+            order: "ASC",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
           }
         }
       )

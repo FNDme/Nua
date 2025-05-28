@@ -14,6 +14,17 @@ import { useUserPreferences } from "~/context/user-preferences.context"
 
 import ImageInfo from "./image-info"
 
+async function toDataURL(url: string): Promise<string> {
+  const response = await fetch(url)
+  const blob = await response.blob()
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
 function BackgroundSelector() {
   const {
     preferences: { background }
@@ -59,24 +70,10 @@ function BackgroundSelector() {
           setCurrentImageData(null)
           setIsTransitioning(false)
 
-          try {
-            // Create a canvas to convert the image to base64
-            const canvas = document.createElement("canvas")
-            canvas.width = img.width
-            canvas.height = img.height
-            const ctx = canvas.getContext("2d")
-            ctx?.drawImage(img, 0, 0)
-
-            // Convert to base64
-            const base64Data = canvas.toDataURL("image/jpeg", 0.8)
-
-            // Cache the base64 data
-            cacheImage(selectedImage.id, base64Data)
-
-            setCurrentImageData(base64Data)
-          } catch (err) {
-            setError("Failed to process image")
-          }
+          // Cache the base64 data
+          const base64Data = await toDataURL(selectedImage.urls.full)
+          cacheImage(selectedImage.id, base64Data)
+          setCurrentImageData(base64Data)
         }
 
         img.onerror = () => {
@@ -97,13 +94,14 @@ function BackgroundSelector() {
       {/* Background Image */}
       <div className="fixed inset-0 z-[-1] bg-cover bg-center transition-opacity duration-500">
         {currentImageData && (
-          <img
-            src={currentImageData}
-            alt={currentImage?.alt_description ?? "Background"}
-            aria-hidden
+          <div
+            className="h-full w-full bg-cover bg-center"
+            style={{
+              backgroundImage: `url(${currentImageData})`
+            }}
+            role="img"
             aria-label={currentImage?.alt_description ?? "Background"}
             aria-roledescription="Background"
-            className="h-full w-full object-cover"
           />
         )}
         {!currentImageData && selectedImage && (
@@ -132,18 +130,20 @@ function BackgroundSelector() {
             disabled={!canNext || isTransitioning}>
             <StepForward opacity={0.6} />
           </IconButton>
-          <Popover>
-            <PopoverTrigger className="inline-flex h-9 w-9 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-black/20 text-sm font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/30 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0">
-              <Info opacity={0.6} />
-            </PopoverTrigger>
-            {/* Image info and author */}
-            <PopoverContent
-              className="w-80 rounded-xl p-2 shadow-xl"
-              side="right"
-              align="start">
-              <ImageInfo currentImage={currentImage} />
-            </PopoverContent>
-          </Popover>
+          {!!selectedImage && (
+            <Popover>
+              <PopoverTrigger className="inline-flex h-9 w-9 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-black/20 text-sm font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/30 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0">
+                <Info opacity={0.6} />
+              </PopoverTrigger>
+              {/* Image info and author */}
+              <PopoverContent
+                className="w-80 rounded-xl p-2 shadow-xl"
+                side="right"
+                align="start">
+                <ImageInfo currentImage={selectedImage} />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       {/* Loading State */}

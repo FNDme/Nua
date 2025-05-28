@@ -15,26 +15,24 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
   return (
     <div className="max-h-[90vh] space-y-4 overflow-y-auto p-3">
       <div className="space-y-2">
-        {currentImage?.urls?.small && (
-          <img
-            src={currentImage.urls.small}
-            alt={currentImage?.alt_description || "Image thumbnail"}
-            className="mb-2 h-32 w-full rounded-lg border-zinc-800 object-cover shadow"
-          />
-        )}
-        {currentImage?.description && (
+        <img
+          src={currentImage.urls.small}
+          alt={currentImage.alt_description || "Image thumbnail"}
+          className="mb-2 h-32 w-full rounded-lg border-zinc-800 object-cover shadow"
+        />
+        {currentImage.description && (
           <h3 className="text-lg font-semibold text-white">
             {currentImage.description}
           </h3>
         )}
-        {currentImage?.alt_description && (
+        {currentImage.alt_description && (
           <p className="text-base text-muted-foreground">
             {currentImage.alt_description}
           </p>
         )}
         <div className="mt-1 flex items-center gap-2">
           <a
-            href={`${currentImage?.links.html}?utm_source=nua&utm_medium=referral`}
+            href={`${currentImage.links.html}?utm_source=nua&utm_medium=referral`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-base text-blue-400 hover:underline">
@@ -128,21 +126,21 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
       <div className="flex items-center justify-end gap-3 text-right">
         <div>
           <a
-            href={`https://unsplash.com/@${currentImage?.user.username}`}
+            href={`https://unsplash.com/@${currentImage.user.username}`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-white hover:underline">
-            {currentImage?.user.name}
-            {currentImage?.user.username && (
+            {currentImage.user.name}
+            {currentImage.user.username && (
               <p className="text-xs text-muted-foreground">
-                @{currentImage?.user.username}
+                @{currentImage.user.username}
               </p>
             )}
           </a>
         </div>
         <img
-          src={currentImage?.user.profile_image.medium}
-          alt={`${currentImage?.user.name}'s profile`}
+          src={currentImage.user.profile_image.medium}
+          alt={`${currentImage.user.name}'s profile`}
           className="h-10 w-10 rounded-full"
         />
       </div>

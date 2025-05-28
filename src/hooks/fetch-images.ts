@@ -114,7 +114,8 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
     canNext:
       (background?.pageIndex < totalPages ||
         background?.photoIndex < lastPageSize - 1) &&
-      !isFetching
+      !isFetching,
+    data
   }
 }
 

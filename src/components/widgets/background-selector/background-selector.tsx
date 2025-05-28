@@ -5,6 +5,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import useFetchImages from "@/hooks/fetch-images"
+import { cacheImage, getCachedImage } from "@/utils/image-cache"
 import { Info, Loader2, StepBack, StepForward } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
@@ -18,49 +19,103 @@ function BackgroundSelector() {
     preferences: { background }
   } = useUserPreferences()
 
-  const { selectedImage, handleNext, handlePrevious, canBack, canNext } =
+  const { selectedImage, handleNext, handlePrevious, canBack, canNext, data } =
     useFetchImages({
       term: background?.query,
       color: background?.color
     })
 
   const [currentImage, setCurrentImage] = useState<Basic | null>(null)
+  const [currentImageData, setCurrentImageData] = useState<string | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!selectedImage) return
-    if (selectedImage !== currentImage) {
-      setIsTransitioning(true)
-      setError(null)
 
-      const img = new Image()
-      img.src = selectedImage?.urls.full
+    const loadImage = async () => {
+      try {
+        setError(null)
 
-      img.onload = () => {
-        setCurrentImage(selectedImage)
-        setIsTransitioning(false)
-      }
+        // Try to get cached image
+        const cachedImage = await getCachedImage(selectedImage.id)
 
-      img.onerror = () => {
-        setError("Failed to load image")
+        if (cachedImage) {
+          // If we have a cached version, use it immediately
+          setCurrentImage(selectedImage)
+          setCurrentImageData(cachedImage)
+          setIsTransitioning(false)
+          return
+        }
+        setIsTransitioning(true)
+
+        // If no cached image
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.src = selectedImage.urls.full
+
+        img.onload = async () => {
+          setCurrentImage(selectedImage)
+          setCurrentImageData(null)
+          setIsTransitioning(false)
+
+          try {
+            // Create a canvas to convert the image to base64
+            const canvas = document.createElement("canvas")
+            canvas.width = img.width
+            canvas.height = img.height
+            const ctx = canvas.getContext("2d")
+            ctx?.drawImage(img, 0, 0)
+
+            // Convert to base64
+            const base64Data = canvas.toDataURL("image/jpeg", 0.8)
+
+            // Cache the base64 data
+            cacheImage(selectedImage.id, base64Data)
+
+            setCurrentImageData(base64Data)
+          } catch (err) {
+            setError("Failed to process image")
+          }
+        }
+
+        img.onerror = () => {
+          setError("Failed to load image")
+          setIsTransitioning(false)
+        }
+      } catch (err) {
+        setError("Failed to load image from cache")
         setIsTransitioning(false)
       }
     }
+
+    loadImage()
   }, [selectedImage])
 
   return (
     <>
       {/* Background Image */}
       <div className="fixed inset-0 z-[-1] bg-cover bg-center transition-opacity duration-500">
-        {currentImage && (
+        {currentImageData && (
           <img
-            src={currentImage?.urls.full}
+            src={currentImageData}
             alt={currentImage?.alt_description ?? "Background"}
             aria-hidden
             aria-label={currentImage?.alt_description ?? "Background"}
             aria-roledescription="Background"
             className="h-full w-full object-cover"
+          />
+        )}
+        {!currentImageData && selectedImage && (
+          <div
+            className="h-full w-full"
+            style={{
+              backgroundImage: `url(${selectedImage.urls.regular})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "blur(20px)",
+              transform: "scale(1.1)"
+            }}
           />
         )}
       </div>
@@ -91,12 +146,13 @@ function BackgroundSelector() {
           </Popover>
         </div>
       </div>
-      {/* Loading and Error States */}
-      {(!currentImage || isTransitioning) && (
+      {/* Loading State */}
+      {isTransitioning && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <Loader2 className="h-8 w-8 animate-spin text-white" />
+          <Loader2 className="size-8 animate-spin" />
         </div>
       )}
+      {/* Error State */}
       {error && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">
           <p className="text-white">{error}</p>

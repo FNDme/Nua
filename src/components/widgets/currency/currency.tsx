@@ -25,9 +25,7 @@ function Currency() {
     select: (data) =>
       data.values.map((value) => {
         return {
-          time: ((Date.parse(value.datetime) -
-            new Date().getTimezoneOffset() * 60000) /
-            1000) as Time,
+          time: (Date.parse(value.datetime + "Z") / 1000) as Time,
           value: Number(value.close)
         }
       })

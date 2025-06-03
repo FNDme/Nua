@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
+import { cn } from "~/lib/utils"
 
 import ImageInfo from "./image-info"
 
@@ -147,11 +148,13 @@ function BackgroundSelector() {
         </div>
       </div>
       {/* Loading State */}
-      {isTransitioning && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <Loader2 className="size-8 animate-spin" />
-        </div>
-      )}
+      <div
+        className={cn(
+          "fixed inset-0 flex items-center justify-center bg-black opacity-0 transition-opacity duration-500",
+          isTransitioning && "opacity-100"
+        )}>
+        <Loader2 className="size-8 animate-spin" />
+      </div>
       {/* Error State */}
       {error && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">

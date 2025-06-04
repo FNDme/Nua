@@ -10,11 +10,11 @@ export default function Home() {
   return (
     <div className="relative flex h-full flex-col items-center justify-between p-8">
       {/* Content */}
-      <div className="relative z-10 flex w-full justify-between">
+      <div className="relative flex w-full justify-between">
         <div className="absolute left-0 top-0">
           <BackgroundSelector />
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 sm:gap-0">
+        <div className="z-10 flex flex-1 flex-col items-center justify-center gap-4 sm:gap-0">
           <WorkTimer />
           <Currency />
         </div>

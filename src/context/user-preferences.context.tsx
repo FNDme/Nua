@@ -47,8 +47,8 @@ interface UserPreferencesContextType {
 const defaultPreferences: UserPreferences = {
   background: {
     query: "mountains",
-    pageIndex: undefined,
-    photoIndex: undefined
+    pageIndex: 1,
+    photoIndex: 0
   },
   quickLinks: {
     links: [],

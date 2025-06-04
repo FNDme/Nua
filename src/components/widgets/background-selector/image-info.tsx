@@ -12,6 +12,19 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
     select: (data) => data.response
   })
 
+  const hasCameraInfo =
+    fullInfo?.exif?.make ||
+    fullInfo?.exif?.model ||
+    fullInfo?.exif?.exposure_time ||
+    fullInfo?.exif?.aperture ||
+    fullInfo?.exif?.focal_length ||
+    fullInfo?.exif?.iso
+
+  const hasLocationInfo =
+    fullInfo?.location?.name ||
+    fullInfo?.location?.city ||
+    fullInfo?.location?.country
+
   return (
     <div className="max-h-[90vh] space-y-4 overflow-y-auto p-3">
       <div className="space-y-2">
@@ -59,7 +72,7 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
         <>
           <div className="my-4 border-t border-zinc-700" />
           <div className="space-y-3">
-            {fullInfo.exif && (
+            {hasCameraInfo && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-white">Camera Information</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
@@ -103,7 +116,7 @@ function ImageInfo({ currentImage }: { currentImage: Basic }) {
               </div>
             )}
 
-            {fullInfo.location && (
+            {hasLocationInfo && (
               <div className="space-y-1">
                 <h4 className="font-semibold text-white">Location</h4>
                 <div className="text-sm text-muted-foreground">

@@ -1,7 +1,7 @@
 {
   "name": "nua",
   "displayName": "Nua",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Browser home page replacement",
   "author": "Gabriel Luis",
   "scripts": {

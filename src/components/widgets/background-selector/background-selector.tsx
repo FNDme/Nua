@@ -119,7 +119,7 @@ function BackgroundSelector() {
         )}
       </div>
       {/* Next and Previous Buttons */}
-      <div className="relative z-10 flex w-full justify-between">
+      <div className="relative z-20 flex w-full justify-between">
         <div className="flex flex-col-reverse items-center gap-2 sm:flex-row">
           <IconButton
             onClick={handlePrevious}

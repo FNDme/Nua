@@ -77,6 +77,11 @@ export const PriceChart = ({ data, height = 150 }: PriceChartProps) => {
       }
     })
     newSeries.setData(data)
+    chart.timeScale().setVisibleRange({
+      from: (new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).getTime() /
+        1000) as Time,
+      to: (new Date(Date.now()).getTime() / 1000) as Time
+    })
 
     handleResize()
     window.addEventListener("resize", handleResize)

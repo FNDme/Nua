@@ -34,8 +34,8 @@ function Currency() {
   const priceChange = useMemo(() => {
     if (!data || data.length < 2) return null
     const currentPrice = data[data.length - 1].value
-    // 15 min interval -> 96 data points in 1 day
-    const previousPrice = data[data.length - 96].value
+    // 1h interval -> 24 data points in 1 day
+    const previousPrice = data[data.length - 24].value
     return ((currentPrice - previousPrice) / previousPrice) * 100
   }, [data])
 

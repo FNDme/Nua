@@ -7,7 +7,7 @@ interface CachedItem<T> {
   expiration: number
 }
 
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const CACHE_DURATION = 15 * 60 * 1000 // 15 minutes
 
 const getCache = <T>(key: string): CachedItem<T> | null => {
   const item = localStorage.getItem(key)
@@ -51,10 +51,10 @@ export const getTimeseriesForTicker = async (
         {
           params: {
             symbol: ticker,
-            start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+            start_date: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
               .toISOString()
               .split("T")[0],
-            interval: "15min",
+            interval: "1h",
             apikey: apiKey,
             order: "ASC",
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone

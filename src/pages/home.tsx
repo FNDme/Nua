@@ -1,4 +1,5 @@
 import BackgroundSelector from "@/components/widgets/background-selector/background-selector"
+import HackerNews from "@/components/widgets/hacker-news"
 import QuickLinks from "@/components/widgets/quick-links"
 import SearchInput from "@/components/widgets/search-input"
 import Time from "@/components/widgets/time"
@@ -26,7 +27,9 @@ export default function Home() {
       <div className="relative z-10 flex w-full justify-center"></div>
       {/* Bottom area */}
       <div className="relative z-10 flex w-full justify-between gap-8">
-        <div></div>
+        <div className="bottom-0 left-0 hidden lg:absolute lg:block">
+          <HackerNews />
+        </div>
         <div className="flex flex-1 items-end justify-center">
           <SearchInput
             autoFocus

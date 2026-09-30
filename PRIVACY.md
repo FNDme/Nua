@@ -66,6 +66,7 @@ request. Their own privacy policies apply.
 
 ## Contact
 
-Questions about this policy: [your contact email]
+Questions about this policy or your data: open an issue at
+[github.com/FNDme/Nua/issues](https://github.com/FNDme/Nua/issues).
 
 If this policy changes, the new version will be posted here with a new date.

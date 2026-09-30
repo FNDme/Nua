@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
-import { unsplash } from "~/lib/unsplash"
+import { getUnsplash } from "~/lib/unsplash"
 
 function ImageInfo({ currentImage }: { currentImage: Basic }) {
   const { data: fullInfo } = useQuery({
     queryKey: ["image-info", currentImage.id],
     queryFn: async () => {
+      const unsplash = await getUnsplash()
       const result = await unsplash.photos.get({ photoId: currentImage.id })
       if (result.type === "error") throw new Error(result.errors.join(", "))
       return result.response

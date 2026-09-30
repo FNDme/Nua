@@ -16,17 +16,19 @@ export interface HackerNewsStory {
 export const getHackerNewsItemUrl = (id: number) =>
   `https://news.ycombinator.com/item?id=${id}`
 
-export const getTopStories = async (limit = 5): Promise<HackerNewsStory[]> => {
-  const { data: ids } = await axios.get<number[]>(`${HN_API}/topstories.json`)
+/** Ranked ids of the current top stories (up to 500) */
+export const getTopStoryIds = async (): Promise<number[]> => {
+  const { data } = await axios.get<number[]>(`${HN_API}/topstories.json`)
+  return data
+}
 
+export const getStories = async (ids: number[]): Promise<HackerNewsStory[]> => {
   const stories = await Promise.all(
-    ids
-      .slice(0, limit)
-      .map((id) =>
-        axios
-          .get<HackerNewsStory | null>(`${HN_API}/item/${id}.json`)
-          .then((response) => response.data)
-      )
+    ids.map((id) =>
+      axios
+        .get<HackerNewsStory | null>(`${HN_API}/item/${id}.json`)
+        .then((response) => response.data)
+    )
   )
 
   // Deleted/dead items come back as null

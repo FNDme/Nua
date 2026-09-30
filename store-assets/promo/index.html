@@ -1,0 +1,239 @@
+<!doctype html>
+<!--
+  Nua promo scene (anime.js v4).
+  - Open normally: the intro plays once.
+  - #final        -> jumps to the last frame (the static promo tile)
+  - #t=1500       -> jumps to 1.5s (used to render video frames)
+  window.__promo exposes { timeline, duration, seek(ms) } for render.mjs.
+  The stage is always 440x280 CSS px; render at a higher deviceScaleFactor
+  for sharper stills and video.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nua promo</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 440px; height: 280px; overflow: hidden; background: #140f33; }
+      body { font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; color: #fff; }
+
+      .stage { position: relative; width: 440px; height: 280px; overflow: hidden; }
+
+      .sky {
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg, #120c38 0%, #3b1f73 38%, #b04a8a 70%, #ff8a6b 90%, #ffc27a 100%);
+      }
+      .sun {
+        position: absolute; left: 150px; top: 150px; width: 130px; height: 130px; border-radius: 50%;
+        background: radial-gradient(circle at 50% 45%, #fff2c4 0%, #ffd27f 38%, #ff9a6b 70%, rgba(255,120,110,0) 72%);
+        filter: drop-shadow(0 0 30px rgba(255, 190, 120, .65));
+      }
+      .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; }
+
+      .mountains { position: absolute; left: 0; bottom: 0; width: 440px; height: 150px; }
+
+      .brand { position: absolute; left: 28px; top: 44px; width: 190px; }
+      .wordmark {
+        font-size: 64px; font-weight: 800; letter-spacing: -3px; line-height: 1;
+        text-shadow: 0 6px 24px rgba(20, 8, 60, .45);
+      }
+      .wordmark .char { display: inline-block; }
+      .tagline { margin-top: 12px; font-size: 16px; font-weight: 600; line-height: 1.25; color: #fde7ef; min-height: 40px; }
+      .features { margin-top: 14px; display: flex; flex-wrap: nowrap; gap: 4px; }
+      .feature {
+        font-size: 9px; font-weight: 600; padding: 3px 7px; border-radius: 999px; white-space: nowrap;
+        background: rgba(20, 10, 50, .35); border: 1px solid rgba(255, 255, 255, .18); color: #fff;
+      }
+
+      /* Glass mini dashboard */
+      .window {
+        position: absolute; left: 226px; top: 40px; width: 192px; height: 152px; padding: 10px;
+        border-radius: 16px; background: rgba(255, 255, 255, .12);
+        border: 1px solid rgba(255, 255, 255, .28);
+        box-shadow: 0 18px 40px rgba(20, 6, 50, .45), inset 0 1px 0 rgba(255, 255, 255, .25);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        transform-origin: 50% 60%;
+      }
+      .dots { display: flex; gap: 4px; margin-bottom: 8px; }
+      .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .45); }
+      .grid { display: grid; grid-template-columns: 1fr 52px; grid-template-rows: 46px 1fr; gap: 6px; height: 118px; }
+      .card { border-radius: 10px; background: rgba(15, 8, 40, .35); border: 1px solid rgba(255, 255, 255, .12); padding: 6px 8px; }
+      .clock { font-size: 26px; font-weight: 700; letter-spacing: -1px; line-height: 34px; font-variant-numeric: tabular-nums; }
+      .ring-card { display: flex; align-items: center; justify-content: center; padding: 0; position: relative; }
+      .ring-card span { position: absolute; font-size: 8px; font-weight: 700; }
+      .chart-card { grid-column: 1 / 2; padding: 6px 6px 2px; }
+      .chart-card small, .news-card small { display: block; font-size: 7px; font-weight: 700; letter-spacing: .5px; opacity: .7; margin-bottom: 3px; }
+      .news-card { padding: 6px; }
+      .line { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .7); margin-bottom: 5px; transform-origin: left center; }
+      .line.dim { background: rgba(255, 255, 255, .35); height: 3px; margin-bottom: 7px; }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <div class="sky"></div>
+      <div class="sun"></div>
+      <div id="stars"></div>
+
+      <svg class="mountains" viewBox="0 0 440 150" preserveAspectRatio="none" aria-hidden="true">
+        <path class="mtn" d="M0 150 L0 70 L60 38 L110 64 L170 22 L232 72 L290 44 L352 82 L405 52 L440 66 L440 150Z" fill="#5a2a70" />
+        <path class="mtn" d="M0 150 L0 96 L78 62 L140 94 L214 58 L286 100 L356 70 L440 98 L440 150Z" fill="#43205f" />
+        <path class="mtn" d="M0 150 L0 122 L96 98 L180 126 L262 104 L346 130 L440 112 L440 150Z" fill="#231238" />
+      </svg>
+
+      <div class="brand">
+        <h1 class="wordmark" id="wordmark">Nua</h1>
+        <p class="tagline" id="tagline">Your calm new tab.</p>
+        <div class="features">
+          <span class="feature">Photos</span>
+          <span class="feature">News</span>
+          <span class="feature">Focus</span>
+          <span class="feature">Notes</span>
+        </div>
+      </div>
+
+      <div class="window" id="window">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="grid">
+          <div class="card widget"><div class="clock" id="clock">09:41</div></div>
+          <div class="card widget ring-card">
+            <svg width="40" height="40" viewBox="0 0 40 40" style="transform: rotate(-90deg)">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4" />
+              <circle class="ring" cx="20" cy="20" r="16" fill="none" stroke="#ffb3c7" stroke-width="4" stroke-linecap="round" />
+            </svg>
+            <span>25:00</span>
+          </div>
+          <div class="card widget chart-card">
+            <small>USD/EUR</small>
+            <svg width="100%" height="44" viewBox="0 0 120 44" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="#8ec5ff" stop-opacity=".55" />
+                  <stop offset="1" stop-color="#8ec5ff" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <path class="area" d="M0 34 L12 30 L24 32 L36 22 L48 26 L60 16 L72 20 L84 10 L96 14 L108 6 L120 9 L120 44 L0 44Z" fill="url(#fill)" />
+              <path class="spark" d="M0 34 L12 30 L24 32 L36 22 L48 26 L60 16 L72 20 L84 10 L96 14 L108 6 L120 9" fill="none" stroke="#bfe0ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="card widget news-card">
+            <small>NEWS</small>
+            <div class="line" style="width: 90%"></div>
+            <div class="line dim" style="width: 60%"></div>
+            <div class="line" style="width: 80%"></div>
+            <div class="line dim" style="width: 50%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="anime.umd.min.js"></script>
+    <script>
+      const {
+        createTimeline,
+        stagger,
+        splitText,
+        scrambleText,
+        createDrawable,
+        createSeededRandom,
+        set
+      } = anime
+
+      // Stars: seeded, so every render places them identically
+      const rand = createSeededRandom(7)
+      const stars = document.getElementById("stars")
+      for (let placed = 0; placed < 46; ) {
+        const x = rand(0, 440)
+        const y = rand(0, 140)
+        // Keep the area behind the wordmark and tagline clear
+        if (x < 236 && y > 34 && y < 150) continue
+        placed++
+        const s = document.createElement("span")
+        s.className = "star"
+        s.style.left = x + "px"
+        s.style.top = y + "px"
+        const size = rand(1, 3, 1)
+        s.style.width = s.style.height = size + "px"
+        s.dataset.o = String(rand(3, 9) / 10)
+        stars.appendChild(s)
+      }
+
+      const { chars } = splitText("#wordmark", { chars: true })
+      // Drawables start fully undrawn
+      const [ring] = createDrawable(".ring", 0, 0)
+      const [spark] = createDrawable(".spark", 0, 0)
+
+      // Starting state for everything the intro reveals. Timeline children
+      // only render once their start time is reached, so without this the
+      // first frames would show the finished layout.
+      const TAGLINE = "Your calm new tab."
+      const CLOCK = "09:41"
+      set(".sky", { opacity: 0 })
+      set(".sun", { translateY: 70, scale: 0.9 })
+      set(".star", { opacity: 0 })
+      set(".mtn", { translateY: 50 })
+      set(chars, { opacity: 0, translateY: 46, rotate: 12 })
+      set(".feature", { opacity: 0, translateY: 8, scale: 0.8 })
+      set("#window", { opacity: 0, translateY: 24, rotate: -6, scale: 0.86 })
+      set(".widget", { opacity: 0, translateY: 10 })
+      set(".area", { opacity: 0 })
+      set(".line", { scaleX: 0 })
+      document.getElementById("tagline").innerHTML = "&nbsp;"
+      document.getElementById("clock").innerHTML = "&nbsp;"
+
+      const tl = createTimeline({
+        autoplay: !location.hash,
+        defaults: { ease: "outCubic" }
+      })
+
+      tl
+        // Dusk: sky, sun rising, stars appearing
+        .add(".sky", { opacity: [0, 1], duration: 700, ease: "linear" }, 0)
+        .add(".sun", { translateY: [70, 0], scale: [0.9, 1], duration: 1800, ease: "outExpo" }, 100)
+        .add(".star", {
+          opacity: (el) => [0, +el.dataset.o],
+          duration: 600,
+          delay: stagger(18, { from: "random", seed: 3 })
+        }, 300)
+        .add(".mtn", { translateY: [50, 0], duration: 1300, delay: stagger(140) }, 200)
+        // Brand: letters spring up, tagline decodes, feature pills pop
+        .add(chars, {
+          translateY: [46, 0],
+          rotate: [12, 0],
+          opacity: [0, 1],
+          duration: 900,
+          delay: stagger(70),
+          ease: "outBack(1.8)"
+        }, 900)
+        .add("#tagline", {
+          innerHTML: scrambleText({ text: TAGLINE, chars: "lowercase", seed: 11 }),
+          duration: 900
+        }, 1500)
+        .add(".feature", { opacity: [0, 1], translateY: [8, 0], scale: [0.8, 1], duration: 500, delay: stagger(80), ease: "outBack(2)" }, 2000)
+        // Dashboard: window lifts in, widgets stagger, charts draw
+        .add("#window", { opacity: [0, 1], translateY: [24, 0], rotate: [-6, -3], scale: [0.86, 1], duration: 1000, ease: "outBack(1.4)" }, 1700)
+        .add(".widget", { opacity: [0, 1], translateY: [10, 0], duration: 500, delay: stagger(110) }, 2100)
+        .add("#clock", {
+          innerHTML: scrambleText({ text: CLOCK, chars: "numbers", seed: 5 }),
+          duration: 800
+        }, 2300)
+        .add(ring, { draw: ["0 0", "0 0.72"], duration: 1200, ease: "inOutQuad" }, 2500)
+        .add(spark, { draw: ["0 0", "0 1"], duration: 1300, ease: "inOutSine" }, 2600)
+        .add(".area", { opacity: [0, 1], duration: 700, ease: "linear" }, 3300)
+        .add(".line", { scaleX: [0, 1], duration: 600, delay: stagger(90) }, 2800)
+        // Hold on the finished frame
+        .add({ duration: 1200 }, 4200)
+
+      const duration = tl.duration
+      // Returns nothing: the timeline object is too large to hand to puppeteer
+      const seek = (ms) => {
+        tl.seek(Math.max(0, Math.min(ms, duration)))
+      }
+
+      const hash = location.hash.slice(1)
+      if (hash === "final") seek(duration)
+      else if (hash.startsWith("t=")) seek(Number(hash.slice(2)) || 0)
+
+      window.__promo = { timeline: tl, duration, seek }
+    </script>
+  </body>
+</html>

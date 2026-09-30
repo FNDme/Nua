@@ -1,31 +1,88 @@
-import { getTimeseriesForTicker } from "@/hooks/data/twelve.data"
+import { getTimeseriesForTicker, type Interval } from "@/hooks/data/twelve.data"
+import type { StockInfo } from "@/hooks/data/twelve.model"
 import { useQuery } from "@tanstack/react-query"
 import type { Time } from "lightweight-charts"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import { useMemo } from "react"
 
-import PriceChart from "~/components/shared/price-chart"
+import PriceChart, { autoPrecision } from "~/components/shared/price-chart"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "~/components/ui/popover"
+import { SegmentedControl } from "~/components/ui/segmented-control"
 import {
   useUserPreferences,
   type ChartRange,
   type ChartSize
 } from "~/context/user-preferences.context"
+import { MissingApiKeyError } from "~/lib/api-keys"
+import { openSettings } from "~/lib/open-settings"
 import { cn } from "~/lib/utils"
 
 const DAY = 24 * 60 * 60
 
-const RANGES: { value: ChartRange; label: string; seconds?: number }[] = [
-  { value: "1D", label: "1D", seconds: DAY },
-  { value: "1W", label: "1W", seconds: 7 * DAY },
-  { value: "1M", label: "1M", seconds: 30 * DAY },
-  { value: "3M", label: "3M", seconds: 90 * DAY },
-  { value: "ALL", label: "All" }
+const RANGES: {
+  value: ChartRange
+  label: string
+  title: string
+  seconds?: number
+  interval: Interval
+}[] = [
+  { value: "1D", label: "1D", title: "1 day", seconds: DAY, interval: "1h" },
+  {
+    value: "1W",
+    label: "1W",
+    title: "1 week",
+    seconds: 7 * DAY,
+    interval: "1h"
+  },
+  {
+    value: "1M",
+    label: "1M",
+    title: "1 month",
+    seconds: 30 * DAY,
+    interval: "1h"
+  },
+  {
+    value: "3M",
+    label: "3M",
+    title: "3 months",
+    seconds: 90 * DAY,
+    interval: "1h"
+  },
+  {
+    value: "1Y",
+    label: "1Y",
+    title: "1 year",
+    seconds: 365 * DAY,
+    interval: "1day"
+  },
+  {
+    value: "ALL",
+    label: "All",
+    title: "All available history",
+    interval: "1day"
+  }
 ]
+
+// Hourly datetimes are "YYYY-MM-DD HH:mm:ss" in the local timezone (see the
+// timezone param); daily ones are "YYYY-MM-DD". Both are read as UTC so the
+// chart, which labels in UTC, shows local wall-clock times.
+const toPoints = (data: StockInfo) =>
+  data.values.map((value) => ({
+    time: (Date.parse(
+      value.datetime.length === 10
+        ? `${value.datetime}T00:00:00Z`
+        : `${value.datetime.replace(" ", "T")}Z`
+    ) / 1000) as Time,
+    value: Number(value.close),
+    open: Number(value.open),
+    high: Number(value.high),
+    low: Number(value.low),
+    close: Number(value.close)
+  }))
 
 const SIZES: {
   value: ChartSize
@@ -51,34 +108,6 @@ const SIZES: {
   }
 ]
 
-function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange
-}: {
-  options: { value: T; label: string; title?: string }[]
-  value: T
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="flex rounded-md bg-white/5 p-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          title={option.title}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground",
-            option.value === value && "bg-white/10 text-foreground"
-          )}>
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 const getChange = (from?: number, to?: number) =>
   from && to ? ((to - from) / from) * 100 : null
 
@@ -90,22 +119,32 @@ function Currency() {
   } = useUserPreferences()
   const range = RANGES.find((r) => r.value === chart?.range) ?? RANGES[2]
   const size = SIZES.find((s) => s.value === chart?.size) ?? SIZES[1]
+  const isSmall = size.value === "sm"
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["currency", ticker],
-    queryFn: () => getTimeseriesForTicker(ticker),
+  const enabled = !isLoadingPreferences && !!ticker
+
+  // Hourly: the pill (24h change) and the short chart ranges
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["currency", ticker, "1h"],
+    queryFn: () => getTimeseriesForTicker(ticker, "1h"),
     // Wait for stored preferences, otherwise we'd query the default ticker
-    enabled: !isLoadingPreferences && !!ticker,
+    enabled,
     staleTime: 1000 * 60 * 15,
     refetchInterval: 1000 * 60 * 15,
-    select: (data) =>
-      data.values.map((value) => {
-        return {
-          time: (Date.parse(value.datetime + "Z") / 1000) as Time,
-          value: Number(value.close)
-        }
-      })
+    select: toPoints
   })
+
+  // Daily: only fetched when a long range is selected
+  const daily = useQuery({
+    queryKey: ["currency", ticker, "1day"],
+    queryFn: () => getTimeseriesForTicker(ticker, "1day"),
+    enabled: enabled && range.interval === "1day",
+    staleTime: 1000 * 60 * 60 * 6,
+    refetchInterval: 1000 * 60 * 60 * 6,
+    select: toPoints
+  })
+
+  const chartData = range.interval === "1day" ? daily.data : data
 
   const currentPrice = data?.[data.length - 1]?.value
 
@@ -117,14 +156,29 @@ function Currency() {
 
   // Change over the range selected in the chart
   const rangeChange = useMemo(() => {
-    if (!data || data.length < 2) return null
-    if (!range.seconds) return getChange(data[0].value, currentPrice)
-    const from = (data[data.length - 1].time as number) - range.seconds
-    const start = data.find((point) => (point.time as number) >= from)
-    return getChange(start?.value, currentPrice)
-  }, [data, range.seconds, currentPrice])
+    if (!chartData || chartData.length < 2) return null
+    const last = chartData[chartData.length - 1]
+    if (!range.seconds) return getChange(chartData[0].value, last.value)
+    const from = (last.time as number) - range.seconds
+    const start = chartData.find((point) => (point.time as number) >= from)
+    return getChange(start?.value, last.value)
+  }, [chartData, range.seconds])
 
   const isUp = priceChange !== null && priceChange > 0
+  const precision =
+    chart?.precision || (currentPrice ? autoPrecision(currentPrice) : 4)
+
+  if (error instanceof MissingApiKeyError) {
+    return (
+      <button
+        type="button"
+        onClick={() => openSettings("keys")}
+        title="Add a Twelve Data key to show prices"
+        className="rounded-full bg-black/20 px-3 py-1 text-sm font-light text-gray-200 transition-all duration-300 hover:scale-105 hover:bg-black/50">
+        {ticker} · Set up prices
+      </button>
+    )
+  }
 
   return (
     <Popover>
@@ -147,7 +201,7 @@ function Currency() {
                   <ArrowDown className="h-4 w-4 text-red-500" />
                 )}
                 <span className="text-xs opacity-70">{ticker}</span>
-                <span>{currentPrice?.toFixed(4)}</span>
+                <span>{currentPrice?.toFixed(precision)}</span>
                 {priceChange !== null && (
                   <span
                     className={cn(
@@ -176,29 +230,52 @@ function Currency() {
                   rangeChange > 0 ? "text-green-500" : "text-red-500"
                 )}>
                 {rangeChange > 0 && "+"}
-                {rangeChange.toFixed(2)}% · {range.label}
+                {rangeChange.toFixed(2)}% ·{" "}
+                {range.seconds || !chartData
+                  ? range.label
+                  : `since ${new Date((chartData[0].time as number) * 1000).getUTCFullYear()}`}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          {/* Small: controls get their own full-width row so they fit */}
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2",
+              isSmall && "w-full justify-between"
+            )}>
             <SegmentedControl
               options={RANGES}
               value={range.value}
               onChange={(value) => updateChart({ range: value })}
+              compact={isSmall}
             />
             <SegmentedControl
               options={SIZES}
               value={size.value}
               onChange={(value) => updateChart({ size: value })}
+              compact={isSmall}
             />
           </div>
         </div>
-        {data && (
+        {chartData ? (
           <PriceChart
-            data={data}
+            data={chartData}
             height={size.height}
             rangeSeconds={range.seconds}
+            type={chart?.type}
+            color={chart?.color}
+            precision={precision}
+            grid={chart?.grid}
           />
+        ) : (
+          <div
+            style={{ height: size.height }}
+            className={cn(
+              "flex items-center justify-center rounded-md bg-white/5 text-xs text-muted-foreground",
+              daily.isFetching && "animate-pulse"
+            )}>
+            {daily.isError ? "History unavailable" : "Loading history..."}
+          </div>
         )}
       </PopoverContent>
     </Popover>

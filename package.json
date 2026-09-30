@@ -2,7 +2,7 @@
   "name": "nua",
   "displayName": "Nua",
   "version": "0.1.0",
-  "description": "Browser home page replacement",
+  "description": "A calm new tab: beautiful photos, news, a Pomodoro timer, notes, to-dos and a currency chart. You choose the widgets.",
   "author": "Gabriel Luis",
   "scripts": {
     "dev": "plasmo dev",
@@ -53,7 +53,18 @@
   "manifest": {
     "permissions": [
       "search",
-      "tabs"
+      "activeTab",
+      "alarms",
+      "notifications"
+    ],
+    "host_permissions": [
+      "https://www.theverge.com/*",
+      "https://feeds.arstechnica.com/*",
+      "https://techcrunch.com/*",
+      "https://feeds.bbci.co.uk/*"
+    ],
+    "optional_host_permissions": [
+      "https://*/*"
     ]
   }
 }

@@ -1,16 +1,24 @@
 import { createApi, type ColorId } from "unsplash-js"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
+import { readApiKey } from "~/lib/api-keys"
+
 export const PAGE_SIZE = 10
 
 // Widest image we ever request, regardless of the screen (4K)
 const MAX_IMAGE_WIDTH = 3840
 
-export const unsplash = createApi({
-  accessKey: process.env.PLASMO_PUBLIC_UNSPLASH_ACCESS_KEY
-})
+let client: { key: string; api: ReturnType<typeof createApi> } | null = null
+
+/** Unsplash client for the user's key; throws MissingApiKeyError without one */
+export async function getUnsplash() {
+  const key = await readApiKey("unsplash")
+  if (client?.key !== key) client = { key, api: createApi({ accessKey: key }) }
+  return client.api
+}
 
 export async function fetchPhotos(term: string, color: ColorId, page: number) {
+  const unsplash = await getUnsplash()
   const result = await unsplash.search.getPhotos({
     query: term,
     page,
@@ -61,7 +69,11 @@ export function getBackgroundUrl(photo: Basic, width = getBackgroundWidth()) {
  * https://help.unsplash.com/en/articles/2511258-guideline-triggering-a-download
  */
 export function trackPhotoUsage(photo: Basic) {
-  unsplash.photos
-    .trackDownload({ downloadLocation: photo.links.download_location })
+  getUnsplash()
+    .then((unsplash) =>
+      unsplash.photos.trackDownload({
+        downloadLocation: photo.links.download_location
+      })
+    )
     .catch(() => {})
 }

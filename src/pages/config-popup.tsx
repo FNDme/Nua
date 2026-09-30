@@ -1,154 +1,175 @@
-import debounce from "lodash.debounce"
-import { Pencil, Plus } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
-import type { ColorId } from "unsplash-js"
-
-import { Button } from "~/components/ui/button"
-import { Input } from "~/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "~/components/ui/select"
-import { useUserPreferences } from "~/context/user-preferences.context"
+  Image,
+  KeyRound,
+  LayoutGrid,
+  LineChart,
+  Newspaper,
+  Timer,
+  type LucideIcon
+} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
-// Radix Select items can't have an empty/undefined value
-const ANY_COLOR = "any"
+import ApiKeysSettings from "~/components/config/api-keys-settings"
+import BackgroundSettings from "~/components/config/background-settings"
+import CurrencySettings from "~/components/config/currency-settings"
+import NewsFeedsSettings from "~/components/config/news-feeds-settings"
+import TimersSettings from "~/components/config/timers-settings"
+import WidgetsSettings from "~/components/config/widgets-settings"
+import {
+  useUserPreferences,
+  type WidgetId
+} from "~/context/user-preferences.context"
+import { useApiKeys } from "~/lib/api-keys"
+import { takeRequestedSettingsTab, type SettingsTab } from "~/lib/open-settings"
+import { cn } from "~/lib/utils"
+
+const TABS: {
+  id: SettingsTab
+  label: string
+  icon: LucideIcon
+  /** Dimmed in the menu when all of these widgets are hidden */
+  widgets?: WidgetId[]
+  render: () => JSX.Element
+}[] = [
+  {
+    id: "widgets",
+    label: "Widgets",
+    icon: LayoutGrid,
+    render: () => <WidgetsSettings />
+  },
+  {
+    id: "background",
+    label: "Background",
+    icon: Image,
+    widgets: ["background"],
+    render: () => <BackgroundSettings />
+  },
+  {
+    id: "timers",
+    label: "Timers",
+    icon: Timer,
+    widgets: ["workTimer", "pomodoro"],
+    render: () => <TimersSettings />
+  },
+  {
+    id: "currency",
+    label: "Currency",
+    icon: LineChart,
+    widgets: ["currency"],
+    render: () => <CurrencySettings />
+  },
+  {
+    id: "news",
+    label: "News",
+    icon: Newspaper,
+    widgets: ["news"],
+    render: () => <NewsFeedsSettings />
+  },
+  {
+    id: "keys",
+    label: "API keys",
+    icon: KeyRound,
+    render: () => <ApiKeysSettings />
+  }
+]
+
+const LAST_TAB_KEY = "nua-settings-last-tab"
+
+const readLastTab = (): SettingsTab => {
+  try {
+    const tab = localStorage.getItem(LAST_TAB_KEY) as SettingsTab | null
+    return TABS.some((t) => t.id === tab) ? tab : "widgets"
+  } catch {
+    return "widgets"
+  }
+}
 
 function ConfigPopup() {
-  const { preferences, updateBackgroundTerm, updateTicker, updateQuickLinks } =
-    useUserPreferences()
+  const { preferences } = useUserPreferences()
+  const { keys, isLoading: isLoadingKeys } = useApiKeys()
+  const [tab, setTab] = useState<SettingsTab>(readLastTab)
+  const contentRef = useRef<HTMLDivElement>(null)
 
-  const [backgroundQuery, setBackgroundQuery] = useState("")
-  const [ticker, setTicker] = useState("")
-
-  const debouncedUpdateBackground = useCallback(
-    debounce((query: string) => {
-      // An empty query would leave the new tab without a background
-      if (query.trim()) updateBackgroundTerm({ query: query.trim() })
-    }, 500),
-    []
-  )
-
-  // Each change triggers a (rate limited) Twelve Data request on open tabs
-  const debouncedUpdateTicker = useCallback(
-    debounce((value: string) => {
-      if (value.trim()) updateTicker(value.trim().toUpperCase())
-    }, 800),
-    []
-  )
+  // A "settings" link on the new tab can ask for a specific tab
+  useEffect(() => {
+    takeRequestedSettingsTab()
+      .then((requested) => requested && setTab(requested))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
-    setBackgroundQuery(preferences.background?.query ?? "")
-  }, [preferences.background?.query])
+    try {
+      localStorage.setItem(LAST_TAB_KEY, tab)
+    } catch {
+      // Storage unavailable: just don't remember the tab
+    }
+    contentRef.current?.scrollTo({ top: 0 })
+  }, [tab])
 
-  useEffect(() => {
-    setTicker(preferences.ticker ?? "")
-  }, [preferences.ticker])
+  // Flag missing keys only for widgets that are turned on
+  const needsKeys =
+    !isLoadingKeys &&
+    ((preferences.widgets.background &&
+      preferences.background?.mode !== "favorites" &&
+      !keys.unsplash) ||
+      (preferences.widgets.currency && !keys.twelveData))
 
-  const handleBackgroundQueryChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const newQuery = e.target.value
-    setBackgroundQuery(newQuery)
-    debouncedUpdateBackground(newQuery)
-  }
-
-  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTicker(e.target.value)
-    debouncedUpdateTicker(e.target.value)
-  }
-
-  const handleEditQuickLinks = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    updateQuickLinks({
-      isEditing: !preferences.quickLinks.isEditing
-    })
-    if (tab.url !== "chrome://newtab/")
-      chrome.tabs.create({ url: "chrome://newtab/" })
-    window.close()
-  }
-  const handleAddQuickLink = async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    updateQuickLinks({ isCreating: !preferences.quickLinks.isCreating })
-    if (tab.url !== "chrome://newtab/")
-      chrome.tabs.create({ url: "chrome://newtab/" })
-    window.close()
-  }
+  const active = TABS.find((t) => t.id === tab) ?? TABS[0]
 
   return (
-    <div className="w-[400px] space-y-4 p-4">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Background Settings</h2>
-        <div className="space-y-2">
-          <Input
-            placeholder="Search query for background"
-            value={backgroundQuery}
-            onChange={handleBackgroundQueryChange}
-          />
-          <Select
-            value={preferences.background?.color ?? ANY_COLOR}
-            onValueChange={(value: ColorId | typeof ANY_COLOR) =>
-              updateBackgroundTerm({
-                color: value === ANY_COLOR ? undefined : value
-              })
-            }>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY_COLOR}>No color filter</SelectItem>
-              <SelectItem value="black_and_white">Black & White</SelectItem>
-              <SelectItem value="black">Black</SelectItem>
-              <SelectItem value="white">White</SelectItem>
-              <SelectItem value="yellow">Yellow</SelectItem>
-              <SelectItem value="orange">Orange</SelectItem>
-              <SelectItem value="red">Red</SelectItem>
-              <SelectItem value="purple">Purple</SelectItem>
-              <SelectItem value="magenta">Magenta</SelectItem>
-              <SelectItem value="green">Green</SelectItem>
-              <SelectItem value="teal">Teal</SelectItem>
-              <SelectItem value="blue">Blue</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="flex h-[560px] w-[600px] flex-col bg-[#1c1c1c] text-foreground">
+      <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-base font-semibold tracking-tight">Nua</span>
+          <span className="text-xs text-muted-foreground">Settings</span>
         </div>
-      </div>
+        <span className="text-[11px] text-muted-foreground">
+          v{chrome.runtime.getManifest().version}
+        </span>
+      </header>
 
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Ticker</h2>
-        <Input
-          placeholder="Ticker"
-          value={ticker}
-          onChange={handleTickerChange}
-        />
-      </div>
+      <div className="flex min-h-0 flex-1">
+        <nav
+          aria-label="Settings sections"
+          className="flex w-40 shrink-0 flex-col gap-0.5 border-r border-white/10 p-2">
+          {TABS.map((item) => {
+            const Icon = item.icon
+            const hidden =
+              item.widgets && item.widgets.every((w) => !preferences.widgets[w])
+            const selected = item.id === active.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setTab(item.id)}
+                title={hidden ? `${item.label} (widget hidden)` : undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+                  selected
+                    ? "bg-white/10 text-foreground"
+                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                  hidden && !selected && "opacity-50"
+                )}>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.id === "keys" && needsKeys && (
+                  <span
+                    className="h-2 w-2 rounded-full bg-amber-400"
+                    aria-label="A key is missing"
+                  />
+                )}
+              </button>
+            )
+          })}
+        </nav>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Quick Links</h2>
-          <div className="space-x-2">
-            {preferences.quickLinks.links.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEditQuickLinks}>
-                <Pencil className="mr-2 h-4 w-4" />
-                {preferences.quickLinks.isEditing ? "Done" : "Edit"}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                handleAddQuickLink()
-              }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add
-            </Button>
-          </div>
-        </div>
+        <main
+          ref={contentRef}
+          className="min-w-0 flex-1 overflow-y-auto p-4 [scrollbar-width:thin]">
+          <h1 className="mb-3 text-lg font-semibold">{active.label}</h1>
+          {active.render()}
+        </main>
       </div>
     </div>
   )

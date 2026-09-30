@@ -26,7 +26,16 @@ interface BackgroundSelection {
 
 const localStorageArea = new Storage({ area: "local" })
 
-function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
+function useFetchImages({
+  term,
+  color,
+  enabled = true
+}: {
+  term?: string
+  color?: ColorId
+  /** False while favorites are shown, so no search requests are made */
+  enabled?: boolean
+}) {
   const queryClient = useQueryClient()
   const {
     preferences: { background },
@@ -45,7 +54,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
   const { data, isFetching, error, refetch } = useQuery({
     ...imagesQueryOptions(term, color, pageIndex),
     // Wait for stored preferences, otherwise we'd query the defaults first
-    enabled: !isLoadingPreferences && !!term && pageIndex > 0,
+    enabled: enabled && !isLoadingPreferences && !!term && pageIndex > 0,
     refetchOnWindowFocus: false
   })
 
@@ -72,7 +81,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
 
   // Remember the photo picked for the current position
   useEffect(() => {
-    if (!isReady || selectionMatches || !resultPhoto) return
+    if (!enabled || !isReady || selectionMatches || !resultPhoto) return
     setSelection({
       query: term,
       color: color ?? null,
@@ -94,7 +103,7 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
 
   // Prefetch the adjacent page when getting close to either end of this one
   useEffect(() => {
-    if (!data || !term) return
+    if (!enabled || !data || !term) return
     if (photoIndex >= results.length - 2 && hasNextPage) {
       queryClient.prefetchQuery(imagesQueryOptions(term, color, pageIndex + 1))
     }

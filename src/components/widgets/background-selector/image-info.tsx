@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
-import { createApi } from "unsplash-js"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
+import { unsplash } from "~/lib/unsplash"
+
 function ImageInfo({ currentImage }: { currentImage: Basic }) {
-  const api = createApi({
-    accessKey: process.env.PLASMO_PUBLIC_UNSPLASH_ACCESS_KEY
-  })
   const { data: fullInfo } = useQuery({
     queryKey: ["image-info", currentImage.id],
-    queryFn: () => api.photos.get({ photoId: currentImage.id }),
-    select: (data) => data.response
+    queryFn: async () => {
+      const result = await unsplash.photos.get({ photoId: currentImage.id })
+      if (result.type === "error") throw new Error(result.errors.join(", "))
+      return result.response
+    }
   })
 
   const hasCameraInfo =

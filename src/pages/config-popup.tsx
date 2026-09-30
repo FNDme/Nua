@@ -14,16 +14,29 @@ import {
 } from "~/components/ui/select"
 import { useUserPreferences } from "~/context/user-preferences.context"
 
+// Radix Select items can't have an empty/undefined value
+const ANY_COLOR = "any"
+
 function ConfigPopup() {
   const { preferences, updateBackgroundTerm, updateTicker, updateQuickLinks } =
     useUserPreferences()
 
   const [backgroundQuery, setBackgroundQuery] = useState("")
+  const [ticker, setTicker] = useState("")
 
   const debouncedUpdateBackground = useCallback(
     debounce((query: string) => {
-      updateBackgroundTerm({ query })
+      // An empty query would leave the new tab without a background
+      if (query.trim()) updateBackgroundTerm({ query: query.trim() })
     }, 500),
+    []
+  )
+
+  // Each change triggers a (rate limited) Twelve Data request on open tabs
+  const debouncedUpdateTicker = useCallback(
+    debounce((value: string) => {
+      if (value.trim()) updateTicker(value.trim().toUpperCase())
+    }, 800),
     []
   )
 
@@ -31,12 +44,21 @@ function ConfigPopup() {
     setBackgroundQuery(preferences.background?.query ?? "")
   }, [preferences.background?.query])
 
+  useEffect(() => {
+    setTicker(preferences.ticker ?? "")
+  }, [preferences.ticker])
+
   const handleBackgroundQueryChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const newQuery = e.target.value
     setBackgroundQuery(newQuery)
     debouncedUpdateBackground(newQuery)
+  }
+
+  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTicker(e.target.value)
+    debouncedUpdateTicker(e.target.value)
   }
 
   const handleEditQuickLinks = async () => {
@@ -67,15 +89,17 @@ function ConfigPopup() {
             onChange={handleBackgroundQueryChange}
           />
           <Select
-            value={preferences.background?.color}
-            onValueChange={(value: ColorId) =>
-              updateBackgroundTerm({ color: value })
+            value={preferences.background?.color ?? ANY_COLOR}
+            onValueChange={(value: ColorId | typeof ANY_COLOR) =>
+              updateBackgroundTerm({
+                color: value === ANY_COLOR ? undefined : value
+              })
             }>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={undefined}>No color filter</SelectItem>
+              <SelectItem value={ANY_COLOR}>No color filter</SelectItem>
               <SelectItem value="black_and_white">Black & White</SelectItem>
               <SelectItem value="black">Black</SelectItem>
               <SelectItem value="white">White</SelectItem>
@@ -96,8 +120,8 @@ function ConfigPopup() {
         <h2 className="text-lg font-semibold">Ticker</h2>
         <Input
           placeholder="Ticker"
-          value={preferences.ticker}
-          onChange={(e) => updateTicker(e.target.value)}
+          value={ticker}
+          onChange={handleTickerChange}
         />
       </div>
 

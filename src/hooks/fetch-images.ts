@@ -1,115 +1,147 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo } from "react"
-import { createApi, type ColorId } from "unsplash-js"
+import { useEffect } from "react"
+import type { ColorId } from "unsplash-js"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
+import { Storage } from "@plasmohq/storage"
+import { useStorage } from "@plasmohq/storage/hook"
+
+import { BACKGROUND_SELECTION_KEY } from "~/constants"
 import { useUserPreferences } from "~/context/user-preferences.context"
+import { imagesQueryOptions, PAGE_SIZE, trackPhotoUsage } from "~/lib/unsplash"
 
-const PAGE_SIZE = 10
-
-const unsplash = createApi({
-  accessKey: process.env.PLASMO_PUBLIC_UNSPLASH_ACCESS_KEY
-})
-
-async function fetchPhotos(term: string, color: ColorId, page: number) {
-  const result = await unsplash.search.getPhotos({
-    query: term,
-    page,
-    perPage: PAGE_SIZE,
-    orientation: "landscape",
-    color
-  })
-
-  if (result.type === "error") {
-    throw new Error(result.errors.join(", "))
-  }
-
-  return result
+/**
+ * The photo currently shown, with the search position it was picked from.
+ * Search results are refetched daily and Unsplash may reorder them, so without
+ * this the same page/photo index could silently point to a different photo.
+ * Kept in local storage: it's too large for sync storage quotas.
+ */
+interface BackgroundSelection {
+  query: string
+  color: ColorId | null
+  pageIndex: number
+  photoIndex: number
+  photo: Basic
 }
+
+const localStorageArea = new Storage({ area: "local" })
 
 function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
   const queryClient = useQueryClient()
   const {
     preferences: { background },
+    isLoading: isLoadingPreferences,
     updateBackgroundPosition
   } = useUserPreferences()
+  const pageIndex = background?.pageIndex ?? 1
+  const photoIndex = background?.photoIndex ?? 0
 
-  const { data, isFetching } = useQuery({
-    queryKey: ["images", term, color, background?.pageIndex],
-    enabled: !!term && !!background?.pageIndex && background?.pageIndex > 0,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const result = await fetchPhotos(term, color, background?.pageIndex)
+  const [selection, setSelection, { isLoading: isLoadingSelection }] =
+    useStorage<BackgroundSelection | null>(
+      { key: BACKGROUND_SELECTION_KEY, instance: localStorageArea },
+      null
+    )
 
-      // Prefetch next page if we're near the end
-      if (result.response.total_pages > background?.pageIndex) {
-        queryClient.prefetchQuery({
-          queryKey: ["images", term, color, background?.pageIndex + 1],
-          queryFn: () => fetchPhotos(term, color, background?.pageIndex + 1)
-        })
-      }
-
-      // Prefetch previous page if we're near the start
-      if (background?.pageIndex > 1) {
-        queryClient.prefetchQuery({
-          queryKey: ["images", term, color, background?.pageIndex - 1],
-          queryFn: () => fetchPhotos(term, color, background?.pageIndex - 1)
-        })
-      }
-
-      return result
-    }
+  const { data, isFetching, error, refetch } = useQuery({
+    ...imagesQueryOptions(term, color, pageIndex),
+    // Wait for stored preferences, otherwise we'd query the defaults first
+    enabled: !isLoadingPreferences && !!term && pageIndex > 0,
+    refetchOnWindowFocus: false
   })
 
-  const totalPages = data?.response.total_pages ?? Infinity
-  const totalResults = data?.response.total ?? Infinity
+  const results = data?.response.results ?? []
+  const totalPages = data?.response.total_pages ?? 0
+  const hasNextInPage = photoIndex < results.length - 1
+  const hasNextPage = pageIndex < totalPages
 
-  const lastPageSize = useMemo(() => {
-    return totalResults % PAGE_SIZE
-  }, [totalResults])
+  const selectionMatches =
+    !!selection &&
+    selection.query === term &&
+    selection.color === (color ?? null) &&
+    selection.pageIndex === pageIndex &&
+    selection.photoIndex === photoIndex
+
+  const resultPhoto = results[Math.min(photoIndex, results.length - 1)]
+
+  const isReady = !isLoadingPreferences && !isLoadingSelection
+  const selectedImage: Basic | undefined = !isReady
+    ? undefined
+    : selectionMatches
+      ? selection.photo
+      : resultPhoto
+
+  // Remember the photo picked for the current position
+  useEffect(() => {
+    if (!isReady || selectionMatches || !resultPhoto) return
+    setSelection({
+      query: term,
+      color: color ?? null,
+      pageIndex,
+      photoIndex,
+      photo: resultPhoto
+    })
+    trackPhotoUsage(resultPhoto)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, selectionMatches, resultPhoto?.id])
+
+  // Stored position is past the end of the results (e.g. fewer results now)
+  useEffect(() => {
+    if (data && results.length === 0 && pageIndex > 1) {
+      updateBackgroundPosition({ pageIndex: 1, photoIndex: 0 })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, pageIndex])
+
+  // Prefetch the adjacent page when getting close to either end of this one
+  useEffect(() => {
+    if (!data || !term) return
+    if (photoIndex >= results.length - 2 && hasNextPage) {
+      queryClient.prefetchQuery(imagesQueryOptions(term, color, pageIndex + 1))
+    }
+    if (photoIndex <= 1 && pageIndex > 1) {
+      queryClient.prefetchQuery(imagesQueryOptions(term, color, pageIndex - 1))
+    }
+  }, [data, term, color, pageIndex, photoIndex])
+
+  // The photo "next" would show, so its image can be preloaded
+  const nextImage: Basic | undefined = hasNextInPage
+    ? results[photoIndex + 1]
+    : hasNextPage
+      ? queryClient.getQueryData<typeof data>(
+          imagesQueryOptions(term, color, pageIndex + 1).queryKey
+        )?.response.results[0]
+      : undefined
 
   const handleNext = () => {
-    if (
-      background?.photoIndex === PAGE_SIZE - 1 &&
-      background?.pageIndex < totalPages
-    ) {
-      const newPage = background?.pageIndex + 1
-      updateBackgroundPosition({ pageIndex: newPage, photoIndex: 0 })
-    } else if (
-      background?.photoIndex < PAGE_SIZE - 1 &&
-      background?.pageIndex < totalPages
-    ) {
-      updateBackgroundPosition({ photoIndex: background?.photoIndex + 1 })
+    if (hasNextInPage) {
+      updateBackgroundPosition({ photoIndex: photoIndex + 1 })
+    } else if (hasNextPage) {
+      updateBackgroundPosition({ pageIndex: pageIndex + 1, photoIndex: 0 })
     }
   }
 
   const handlePrevious = () => {
-    if (background?.photoIndex === 0 && background?.pageIndex > 1) {
-      const newPage = background?.pageIndex - 1
+    if (photoIndex > 0) {
+      updateBackgroundPosition({ photoIndex: photoIndex - 1 })
+    } else if (pageIndex > 1) {
+      // Every page before the last one is full
       updateBackgroundPosition({
-        pageIndex: newPage,
+        pageIndex: pageIndex - 1,
         photoIndex: PAGE_SIZE - 1
       })
-    } else if (background?.photoIndex > 0) {
-      updateBackgroundPosition({ photoIndex: background?.photoIndex - 1 })
     }
   }
 
-  const selectedImage = useMemo<Basic | undefined>(() => {
-    if (!data || background?.photoIndex === undefined) return undefined
-    return data?.response.results[background?.photoIndex]
-  }, [data, background?.photoIndex])
-
   return {
     selectedImage,
+    nextImage,
     handleNext,
     handlePrevious,
-    canBack:
-      (background?.pageIndex > 1 || background?.photoIndex > 0) && !isFetching,
-    canNext:
-      (background?.pageIndex < totalPages ||
-        background?.photoIndex < lastPageSize - 1) &&
-      !isFetching,
+    canBack: (pageIndex > 1 || photoIndex > 0) && !isFetching,
+    canNext: !!data && (hasNextInPage || hasNextPage) && !isFetching,
+    isEmpty: !!data && data.response.total === 0,
+    error: error as Error | null,
+    refetch,
     data
   }
 }

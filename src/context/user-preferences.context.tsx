@@ -6,6 +6,9 @@ import { useStorage } from "@plasmohq/storage/hook"
 
 import { PREFERENCES_KEY } from "~/constants"
 
+export type ChartSize = "sm" | "md" | "lg"
+export type ChartRange = "1D" | "1W" | "1M" | "3M" | "ALL"
+
 interface UserPreferences {
   background: {
     query: string
@@ -19,10 +22,16 @@ interface UserPreferences {
     isCreating: boolean
   }
   ticker: string
+  chart: {
+    size: ChartSize
+    range: ChartRange
+  }
 }
 
 interface UserPreferencesContextType {
   preferences: UserPreferences
+  /** True until the stored preferences have been read */
+  isLoading: boolean
   updatePreferences: (newPreferences: Partial<UserPreferences>) => void
   updateBackgroundTerm: ({
     query,
@@ -42,6 +51,7 @@ interface UserPreferencesContextType {
     newQuickLinks: Partial<UserPreferences["quickLinks"]>
   ) => void
   updateTicker: (newTicker: string) => void
+  updateChart: (newChart: Partial<UserPreferences["chart"]>) => void
 }
 
 const defaultPreferences: UserPreferences = {
@@ -55,7 +65,11 @@ const defaultPreferences: UserPreferences = {
     isEditing: false,
     isCreating: false
   },
-  ticker: "USD/EUR"
+  ticker: "USD/EUR",
+  chart: {
+    size: "md",
+    range: "1M"
+  }
 }
 
 const UserPreferencesContext = createContext<
@@ -69,13 +83,16 @@ interface UserPreferencesProviderProps {
 export const UserPreferencesProvider: FC<UserPreferencesProviderProps> = ({
   children
 }) => {
-  const [preferences, setPreferences] = useStorage<UserPreferences>(
-    PREFERENCES_KEY,
-    (v) => (v === undefined ? defaultPreferences : v)
-  )
+  // Stored preferences may predate newer fields, so fill them from defaults
+  const [preferences, setPreferences, { isLoading }] =
+    useStorage<UserPreferences>(PREFERENCES_KEY, (v) =>
+      v === undefined ? defaultPreferences : { ...defaultPreferences, ...v }
+    )
 
+  // All updates use the functional form so callers holding an old closure
+  // (e.g. debounced handlers) never overwrite newer values with stale ones
   const updatePreferences = (newPreferences: Partial<UserPreferences>) => {
-    if (newPreferences.quickLinks.links.length === 0)
+    if (newPreferences.quickLinks?.links.length === 0)
       newPreferences.quickLinks.isEditing = false
     setPreferences((prev) => ({
       ...prev,
@@ -84,28 +101,28 @@ export const UserPreferencesProvider: FC<UserPreferencesProviderProps> = ({
   }
 
   const updateBackgroundTerm = (props: { query?: string; color?: ColorId }) => {
-    setPreferences({
-      ...preferences,
+    setPreferences((prev) => ({
+      ...prev,
       background: {
-        ...preferences.background,
+        ...prev.background,
         ...props,
         pageIndex: 1,
         photoIndex: 0
       }
-    })
+    }))
   }
 
   const updateBackgroundPosition = (props: {
     pageIndex?: number
     photoIndex?: number
   }) => {
-    setPreferences({
-      ...preferences,
+    setPreferences((prev) => ({
+      ...prev,
       background: {
-        ...preferences.background,
+        ...prev.background,
         ...props
       }
-    })
+    }))
   }
 
   const updateQuickLinks = (
@@ -116,22 +133,32 @@ export const UserPreferencesProvider: FC<UserPreferencesProviderProps> = ({
       quickLinks: { ...prev.quickLinks, ...newQuickLinks }
     }))
   }
+
   const updateTicker = (newTicker: string) => {
-    setPreferences({
-      ...preferences,
+    setPreferences((prev) => ({
+      ...prev,
       ticker: newTicker
-    })
+    }))
+  }
+
+  const updateChart = (newChart: Partial<UserPreferences["chart"]>) => {
+    setPreferences((prev) => ({
+      ...prev,
+      chart: { ...prev.chart, ...newChart }
+    }))
   }
 
   return (
     <UserPreferencesContext.Provider
       value={{
         preferences,
+        isLoading,
         updatePreferences,
         updateBackgroundTerm,
         updateBackgroundPosition,
         updateQuickLinks,
-        updateTicker
+        updateTicker,
+        updateChart
       }}>
       {children}
     </UserPreferencesContext.Provider>

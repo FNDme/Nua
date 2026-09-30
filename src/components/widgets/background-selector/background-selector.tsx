@@ -5,25 +5,26 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import useFetchImages from "@/hooks/fetch-images"
-import { cacheImage, getCachedImage } from "@/utils/image-cache"
-import { Info, Loader2, StepBack, StepForward } from "lucide-react"
-import { useEffect, useState } from "react"
-import type { Basic } from "unsplash-js/dist/methods/photos/types"
+import {
+  Info,
+  Loader2,
+  RotateCw,
+  StepBack,
+  StepForward,
+  TriangleAlert
+} from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
 import { cn } from "~/lib/utils"
 
 import ImageInfo from "./image-info"
+import { loadBackgroundImage, preloadBackgroundImage } from "./load-image"
 
-async function toDataURL(url: string): Promise<string> {
-  const response = await fetch(url)
-  const blob = await response.blob()
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+interface Layer {
+  id: string
+  url: string
+  alt: string
 }
 
 function BackgroundSelector() {
@@ -31,109 +32,157 @@ function BackgroundSelector() {
     preferences: { background }
   } = useUserPreferences()
 
-  const { selectedImage, handleNext, handlePrevious, canBack, canNext, data } =
-    useFetchImages({
-      term: background?.query,
-      color: background?.color
-    })
+  const {
+    selectedImage,
+    nextImage,
+    handleNext,
+    handlePrevious,
+    canBack,
+    canNext,
+    isEmpty,
+    error: searchError,
+    refetch
+  } = useFetchImages({
+    term: background?.query,
+    color: background?.color
+  })
 
-  const [currentImage, setCurrentImage] = useState<Basic | null>(null)
-  const [currentImageData, setCurrentImageData] = useState<string | null>(null)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // The previous image stays underneath while the new one fades in
+  const [layers, setLayers] = useState<Layer[]>([])
+  const [isLoadingImage, setIsLoadingImage] = useState(false)
+  const [imageError, setImageError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const displayedId = useRef<string | null>(null)
+  const objectUrls = useRef(new Set<string>())
+
+  const currentLayer = layers[layers.length - 1]
 
   useEffect(() => {
-    if (!selectedImage) return
+    if (!selectedImage || displayedId.current === selectedImage.id) return
 
-    const loadImage = async () => {
-      try {
-        setError(null)
+    // Ignore the result if the selection changes before it finishes loading
+    let cancelled = false
+    setImageError(false)
+    setIsLoadingImage(true)
 
-        // Try to get cached image
-        const cachedImage = await getCachedImage(selectedImage.id)
+    const load = async () => {
+      const blob = await loadBackgroundImage(selectedImage)
+      if (cancelled) return
 
-        if (cachedImage) {
-          // If we have a cached version, use it immediately
-          setCurrentImage(selectedImage)
-          setCurrentImageData(cachedImage)
-          setIsTransitioning(false)
-          return
+      const url = URL.createObjectURL(blob)
+      objectUrls.current.add(url)
+      // Decode before showing it so the fade-in doesn't start on a blank frame
+      const img = new Image()
+      img.src = url
+      await img.decode().catch(() => {})
+      if (cancelled) return
+
+      displayedId.current = selectedImage.id
+      setLayers((prev) => [
+        ...prev.slice(-1),
+        {
+          id: selectedImage.id,
+          url,
+          alt: selectedImage.alt_description ?? "Background"
         }
-        setIsTransitioning(true)
-
-        // If no cached image
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.src = selectedImage.urls.full
-
-        img.onload = async () => {
-          setCurrentImage(selectedImage)
-          setCurrentImageData(null)
-          setIsTransitioning(false)
-
-          // Cache the base64 data
-          const base64Data = await toDataURL(selectedImage.urls.full)
-          cacheImage(selectedImage.id, base64Data)
-          setCurrentImageData(base64Data)
-        }
-
-        img.onerror = () => {
-          setError("Failed to load image")
-          setIsTransitioning(false)
-        }
-      } catch (err) {
-        setError("Failed to load image from cache")
-        setIsTransitioning(false)
-      }
+      ])
     }
 
-    loadImage()
-  }, [selectedImage])
+    load()
+      .catch(() => !cancelled && setImageError(true))
+      .finally(() => !cancelled && setIsLoadingImage(false))
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedImage?.id, retryCount])
+
+  // Release object URLs of images no longer on screen
+  useEffect(() => {
+    const live = new Set(layers.map((layer) => layer.url))
+    objectUrls.current.forEach((url) => {
+      if (live.has(url)) return
+      URL.revokeObjectURL(url)
+      objectUrls.current.delete(url)
+    })
+  }, [layers])
+
+  useEffect(() => {
+    const urls = objectUrls.current
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [])
+
+  // Once the current image is shown, fetch the next one in the background
+  useEffect(() => {
+    if (!nextImage || !currentLayer || isLoadingImage) return
+    const timeout = setTimeout(() => preloadBackgroundImage(nextImage), 1000)
+    return () => clearTimeout(timeout)
+  }, [nextImage?.id, currentLayer?.id, isLoadingImage])
+
+  const status = searchError
+    ? { message: "Couldn't load images", retry: () => refetch() }
+    : isEmpty
+      ? { message: `No images for "${background?.query}"` }
+      : imageError
+        ? {
+            message: "Couldn't load image",
+            retry: () => setRetryCount((c) => c + 1)
+          }
+        : null
 
   return (
     <>
       {/* Background Image */}
-      <div className="fixed inset-0 z-[-1] bg-cover bg-center transition-opacity duration-500">
-        {currentImageData && (
-          <div
-            className="h-full w-full bg-cover bg-center"
-            style={{
-              backgroundImage: `url(${currentImageData})`
-            }}
-            role="img"
-            aria-label={currentImage?.alt_description ?? "Background"}
+      <div
+        className="fixed inset-0 z-[-1] bg-zinc-900"
+        style={{ backgroundColor: selectedImage?.color ?? undefined }}>
+        {/* Blurred low-res preview until the first image is ready */}
+        {!currentLayer && selectedImage && (
+          <img
+            src={selectedImage.urls.small}
+            alt=""
+            aria-hidden
+            className="h-full w-full scale-110 object-cover blur-2xl"
+          />
+        )}
+        {layers.map((layer, index) => (
+          <img
+            key={layer.url}
+            src={layer.url}
+            alt={layer.alt}
             aria-roledescription="Background"
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover",
+              // Only animate replacements, the first image shows instantly
+              index > 0 && "duration-700 animate-in fade-in"
+            )}
           />
-        )}
-        {!currentImageData && selectedImage && (
-          <div
-            className="h-full w-full"
-            style={{
-              backgroundImage: `url(${selectedImage.urls.regular})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              filter: "blur(20px)",
-              transform: "scale(1.1)"
-            }}
-          />
-        )}
+        ))}
       </div>
       {/* Next and Previous Buttons */}
       <div className="relative z-20 flex w-full justify-between">
         <div className="flex flex-col-reverse items-center gap-2 sm:flex-row">
           <IconButton
+            title="Previous background"
             onClick={handlePrevious}
-            disabled={!canBack || isTransitioning}>
+            disabled={!canBack || isLoadingImage}>
             <StepBack opacity={0.6} />
           </IconButton>
           <IconButton
+            title="Next background"
             onClick={handleNext}
-            disabled={!canNext || isTransitioning}>
-            <StepForward opacity={0.6} />
+            disabled={!canNext || isLoadingImage}>
+            {isLoadingImage ? (
+              <Loader2 className="animate-spin" opacity={0.6} />
+            ) : (
+              <StepForward opacity={0.6} />
+            )}
           </IconButton>
           {!!selectedImage && (
             <Popover>
-              <PopoverTrigger className="inline-flex h-9 w-9 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-black/20 text-sm font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/30 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0">
+              <PopoverTrigger
+                title="Image info"
+                className="inline-flex h-9 w-9 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-black/20 text-sm font-medium text-gray-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-black/30 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0">
                 <Info opacity={0.6} />
               </PopoverTrigger>
               {/* Image info and author */}
@@ -145,22 +194,24 @@ function BackgroundSelector() {
               </PopoverContent>
             </Popover>
           )}
+          {status && (
+            <div className="flex h-9 items-center gap-2 rounded-full bg-black/20 pl-3 pr-1 text-sm text-gray-200 shadow-lg backdrop-blur-sm">
+              <TriangleAlert className="size-4 shrink-0 text-amber-300" />
+              <span className="whitespace-nowrap">{status.message}</span>
+              {status.retry ? (
+                <IconButton
+                  title="Retry"
+                  className="h-7 w-7 shadow-none"
+                  onClick={status.retry}>
+                  <RotateCw />
+                </IconButton>
+              ) : (
+                <span className="w-2" />
+              )}
+            </div>
+          )}
         </div>
       </div>
-      {/* Loading State */}
-      <div
-        className={cn(
-          "fixed inset-0 flex items-center justify-center bg-black opacity-0 transition-opacity duration-500",
-          isTransitioning && "opacity-100"
-        )}>
-        <Loader2 className="size-8 animate-spin" />
-      </div>
-      {/* Error State */}
-      {error && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <p className="text-white">{error}</p>
-        </div>
-      )}
     </>
   )
 }

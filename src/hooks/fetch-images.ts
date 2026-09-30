@@ -1,11 +1,31 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo } from "react"
-import type { ColorId } from "unsplash-js"
+import { createApi, type ColorId } from "unsplash-js"
 import type { Basic } from "unsplash-js/dist/methods/photos/types"
 
 import { useUserPreferences } from "~/context/user-preferences.context"
 
 const PAGE_SIZE = 10
+
+const unsplash = createApi({
+  accessKey: process.env.PLASMO_PUBLIC_UNSPLASH_ACCESS_KEY
+})
+
+async function fetchPhotos(term: string, color: ColorId, page: number) {
+  const result = await unsplash.search.getPhotos({
+    query: term,
+    page,
+    perPage: PAGE_SIZE,
+    orientation: "landscape",
+    color
+  })
+
+  if (result.type === "error") {
+    throw new Error(result.errors.join(", "))
+  }
+
+  return result
+}
 
 function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
   const queryClient = useQueryClient()
@@ -19,47 +39,13 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
     enabled: !!term && !!background?.pageIndex && background?.pageIndex > 0,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const result = await chrome.runtime.sendMessage({
-        type: "UNSPLASH_API_REQUEST",
-        payload: {
-          method: "getPhotos",
-          params: {
-            query: term,
-            page: background?.pageIndex,
-            perPage: PAGE_SIZE,
-            orientation: "landscape",
-            color: color
-          }
-        }
-      })
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
+      const result = await fetchPhotos(term, color, background?.pageIndex)
 
       // Prefetch next page if we're near the end
-      if (result.data.response.total_pages > background?.pageIndex) {
+      if (result.response.total_pages > background?.pageIndex) {
         queryClient.prefetchQuery({
           queryKey: ["images", term, color, background?.pageIndex + 1],
-          queryFn: async () => {
-            const nextPageResult = await chrome.runtime.sendMessage({
-              type: "UNSPLASH_API_REQUEST",
-              payload: {
-                method: "getPhotos",
-                params: {
-                  query: term,
-                  page: background?.pageIndex + 1,
-                  perPage: PAGE_SIZE,
-                  orientation: "landscape",
-                  color: color
-                }
-              }
-            })
-            if (nextPageResult.error) {
-              throw new Error(nextPageResult.error)
-            }
-            return nextPageResult.data
-          }
+          queryFn: () => fetchPhotos(term, color, background?.pageIndex + 1)
         })
       }
 
@@ -67,29 +53,11 @@ function useFetchImages({ term, color }: { term?: string; color?: ColorId }) {
       if (background?.pageIndex > 1) {
         queryClient.prefetchQuery({
           queryKey: ["images", term, color, background?.pageIndex - 1],
-          queryFn: async () => {
-            const prevPageResult = await chrome.runtime.sendMessage({
-              type: "UNSPLASH_API_REQUEST",
-              payload: {
-                method: "getPhotos",
-                params: {
-                  query: term,
-                  page: background?.pageIndex - 1,
-                  perPage: PAGE_SIZE,
-                  orientation: "landscape",
-                  color: color
-                }
-              }
-            })
-            if (prevPageResult.error) {
-              throw new Error(prevPageResult.error)
-            }
-            return prevPageResult.data
-          }
+          queryFn: () => fetchPhotos(term, color, background?.pageIndex - 1)
         })
       }
 
-      return result.data
+      return result
     }
   })
 
